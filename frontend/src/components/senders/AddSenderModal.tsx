@@ -61,7 +61,13 @@ export function AddSenderModal({ isOpen, onClose, onSuccess }: AddSenderModalPro
         smtpPass: smtpPass.trim(),
       };
       
-      console.log('Creating sender with data:', { ...senderData, smtpPass: '***' });
+      console.log('=== Creating Sender ===');
+      console.log('Email:', senderData.email);
+      console.log('SMTP Host:', senderData.smtpHost);
+      console.log('SMTP Port:', senderData.smtpPort, 'Type:', typeof senderData.smtpPort);
+      console.log('SMTP User:', senderData.smtpUser);
+      console.log('SMTP Pass:', senderData.smtpPass ? '[SET]' : '[EMPTY]');
+      console.log('Full payload:', { ...senderData, smtpPass: '***' });
       
       await api.createSender(senderData);
 
@@ -73,18 +79,27 @@ export function AddSenderModal({ isOpen, onClose, onSuccess }: AddSenderModalPro
         onSuccess();
       }, 1500);
     } catch (err: any) {
-      console.error('Failed to create sender:', err);
+      console.error('Failed to create sender - Full error:', err);
+      console.error('Error data:', err?.data);
+      console.error('Error status:', err?.status);
       
       // Better error messages
       let errorMessage = 'Failed to create sender account';
       
       if (err?.data?.error) {
         errorMessage = err.data.error;
+        // If there are required fields listed, show them
+        if (err?.data?.required) {
+          errorMessage += ` (Required: ${err.data.required.join(', ')})`;
+        }
       } else if (err?.data?.detail) {
         errorMessage = err.data.detail;
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }
+      
+      // Add debug info
+      errorMessage += ` [Status: ${err?.status || 'unknown'}]`;
       
       setError(errorMessage);
     } finally {
