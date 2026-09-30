@@ -1,0 +1,108 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  googleId  String   @unique
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+
+  senders      Sender[]
+  batches      Batch[]
+  emails       Email[]
+  slackInstall SlackInstall?
+
+  @@map("users")
+}
+
+model Sender {
+  id       String   @id @default(cuid())
+  userId   String
+  email    String
+  smtpHost String
+  smtpPort Int
+  smtpUser String
+  smtpPass String
+  createdAt DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails Email[]
+
+  @@map("senders")
+}
+
+model Batch {
+  id          String   @id @default(cuid())
+  userId      String
+  subject     String
+  body        String   @db.Text
+  startAt     DateTime
+  delayMs     Int
+  hourlyLimit Int
+  createdAt   DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails Email[]
+
+  @@map("batches")
+}
+
+enum EmailStatus {
+  SCHEDULED
+  PROCESSING
+  SENT
+  FAILED
+}
+
+model Email {
+  id          String      @id @default(cuid())
+  batchId     String
+  userId      String
+  senderId    String
+  recipient   String
+  subject     String
+  body        String      @db.Text
+  scheduledAt DateTime
+  sentAt      DateTime?
+  status      EmailStatus @default(SCHEDULED)
+  messageId   String?
+  attempts    Int         @default(0)
+  lastError   String?     @db.Text
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  batch  Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sender Sender @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, recipient])
+  @@index([status, scheduledAt])
+  @@index([userId, status])
+  @@index([senderId, status])
+  @@map("emails")
+}
+
+model SlackInstall {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  teamId     String
+  accessToken String?
+  webhookUrl  String?
+  channelId   String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("slack_installs")
+}
