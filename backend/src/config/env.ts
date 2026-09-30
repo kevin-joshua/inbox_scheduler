@@ -18,10 +18,10 @@ const envSchema = z.object({
   // Elasticsearch
   ELASTICSEARCH_URL: z.string().url(),
 
-  // Google OAuth (optional for now, will be required when auth is implemented)
-  GOOGLE_CLIENT_ID: z.string().optional(),
-  GOOGLE_CLIENT_SECRET: z.string().optional(),
-  GOOGLE_REDIRECT_URI: z.string().url().optional(),
+  // Google OAuth (required for authentication)
+  GOOGLE_CLIENT_ID: z.string().min(1, 'Google Client ID is required'),
+  GOOGLE_CLIENT_SECRET: z.string().min(1, 'Google Client Secret is required'),
+  GOOGLE_REDIRECT_URI: z.string().url(),
 
   // Slack OAuth (optional for now, will be required when Slack integration is implemented)
   SLACK_CLIENT_ID: z.string().optional(),
@@ -46,11 +46,7 @@ function validateEnv(): Env {
   try {
     const parsed = envSchema.parse(process.env);
     
-    // Log warnings for optional OAuth credentials
-    if (!parsed.GOOGLE_CLIENT_ID || !parsed.GOOGLE_CLIENT_SECRET) {
-      logger.warn('Google OAuth credentials not configured. Auth endpoints will not work.');
-    }
-    
+    // Log warning for optional Slack credentials
     if (!parsed.SLACK_CLIENT_ID || !parsed.SLACK_CLIENT_SECRET) {
       logger.warn('Slack OAuth credentials not configured. Slack integration will not work.');
     }

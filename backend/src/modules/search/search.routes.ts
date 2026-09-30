@@ -1,13 +1,16 @@
 import { Router } from 'express';
-import { requireAuth } from '../auth/auth.middleware';
+import { requireAuth, AuthRequest } from '../auth/auth.middleware';
 
 export const searchRouter = Router();
 
 /**
- * TODO(lld): Implement search routes using Elasticsearch
- * GET /search/emails - Full-text search across email subjects and bodies
+ * GET /search/emails
+ * Full-text search across email subjects and bodies
+ * Requires authentication - searches only user's emails
  */
-
-searchRouter.get('/emails', requireAuth, (req, res) => {
-  res.status(501).json({ error: 'Not implemented: Email search' });
+searchRouter.get('/emails', requireAuth, (req: AuthRequest, res) => {
+  res.status(501).json({
+    error: 'Not implemented: Email search',
+    userId: req.userId, // Demonstrates user scoping
+  });
 });
