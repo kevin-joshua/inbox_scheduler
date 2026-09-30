@@ -36,17 +36,37 @@ async function fetchApi<T>(
 
 export const api = {
   // Auth
-  getMe: () => fetchApi<{ id: string; email: string; name: string }>('/auth/me'),
+  getMe: () => fetchApi<{ id: string; email: string; name: string | null; avatarUrl: string | null; createdAt: string }>('/auth/me'),
   logout: () => fetchApi('/auth/logout', { method: 'POST' }),
 
   // Emails
-  getEmails: (filters?: { status?: string; batchId?: string }) => {
+  getEmails: (filters?: { status?: string; batchId?: string; page?: number; limit?: number }) => {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.batchId) params.append('batchId', filters.batchId);
-    return fetchApi<Array<{ id: string; recipient: string; status: string }>>(
-      `/emails?${params}`
-    );
+    if (filters?.page) params.append('page', String(filters.page));
+    if (filters?.limit) params.append('limit', String(filters.limit));
+    return fetchApi<{
+      emails: Array<{
+        id: string;
+        recipient: string;
+        subject: string;
+        body: string;
+        status: string;
+        scheduledAt: string;
+        sentAt: string | null;
+        messageId: string | null;
+        failureReason: string | null;
+        senderId: string;
+        batchId: string;
+      }>;
+      pagination: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      };
+    }>(`/emails?${params}`);
   },
   scheduleEmail: (data: {
     senderId: string;
@@ -67,6 +87,19 @@ export const api = {
     fetchApi('/emails/batch', { method: 'POST', body: JSON.stringify(data) }),
   cancelEmail: (id: string) =>
     fetchApi(`/emails/${id}`, { method: 'DELETE' }),
+
+  // Senders
+  getSenders: () =>
+    fetchApi<{
+      senders: Array<{
+        id: string;
+        email: string;
+        smtpHost: string;
+        smtpPort: number;
+        createdAt: string;
+      }>;
+      count: number;
+    }>('/senders'),
 
   // Search
   searchEmails: (query: string) =>
