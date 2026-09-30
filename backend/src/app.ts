@@ -8,6 +8,7 @@ import { logger } from './infra/logger';
 import { errorHandler } from './middleware/error-handler';
 import { checkDatabaseHealth } from './db/client';
 import { getRedisClient } from './infra/redis';
+import { checkElasticHealth } from './infra/elastic';
 import { authRouter } from './modules/auth/auth.routes';
 import { emailsRouter } from './modules/emails/emails.routes';
 import { sendersRouter } from './modules/senders/senders.routes';
@@ -30,32 +31,39 @@ app.use(cookieParser());
 app.use(pinoHttp({ logger }));
 
 // Health check endpoint
+//
+// Dependency classification:
+//   CRITICAL  – database, redis   → 503 when either is down
+//   OPTIONAL  – elasticsearch     → 'degraded' but still 200; email delivery
+//               continues without ES (indexing is fire-and-forget)
 app.get('/health', async (req, res) => {
   try {
-    const dbHealthy = await checkDatabaseHealth();
+    const [dbHealthy, esHealthy] = await Promise.all([
+      checkDatabaseHealth(),
+      checkElasticHealth(),
+    ]);
     const redis = getRedisClient();
     const redisHealthy = redis.status === 'ready';
 
-    if (dbHealthy && redisHealthy) {
-      res.json({
-        status: 'ok',
-        database: 'connected',
-        redis: 'connected',
-        timestamp: new Date().toISOString(),
-      });
-    } else {
-      res.status(503).json({
-        status: 'degraded',
-        database: dbHealthy ? 'connected' : 'disconnected',
-        redis: redisHealthy ? 'connected' : 'disconnected',
-        timestamp: new Date().toISOString(),
-      });
-    }
+    const criticalOk = dbHealthy && redisHealthy;
+    const allOk      = criticalOk && esHealthy;
+
+    const body = {
+      status:        allOk ? 'ok' : criticalOk ? 'degraded' : 'unhealthy',
+      database:      dbHealthy    ? 'connected'    : 'disconnected',
+      redis:         redisHealthy ? 'connected'    : 'disconnected',
+      elasticsearch: esHealthy    ? 'connected'    : 'disconnected',
+      timestamp:     new Date().toISOString(),
+    };
+
+    // Return 503 only when a CRITICAL dependency is down.
+    // Elasticsearch being down keeps the service running (degraded).
+    res.status(criticalOk ? 200 : 503).json(body);
   } catch (error) {
     logger.error({ error }, 'Health check failed');
     res.status(503).json({
-      status: 'error',
-      message: 'Health check failed',
+      status:    'error',
+      message:   'Health check failed',
       timestamp: new Date().toISOString(),
     });
   }
