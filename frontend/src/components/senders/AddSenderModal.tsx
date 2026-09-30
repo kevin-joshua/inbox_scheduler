@@ -39,8 +39,8 @@ export function AddSenderModal({ isOpen, onClose, onSuccess }: AddSenderModalPro
         setError('SMTP host is required');
         return;
       }
-      if (!smtpPort) {
-        setError('SMTP port is required');
+      if (!smtpPort || isNaN(parseInt(smtpPort))) {
+        setError('SMTP port must be a valid number');
         return;
       }
       if (!smtpUser.trim()) {
@@ -53,13 +53,17 @@ export function AddSenderModal({ isOpen, onClose, onSuccess }: AddSenderModalPro
       }
 
       // Create sender
-      await api.createSender({
+      const senderData = {
         email: email.trim(),
         smtpHost: smtpHost.trim(),
         smtpPort: parseInt(smtpPort),
         smtpUser: smtpUser.trim(),
         smtpPass: smtpPass.trim(),
-      });
+      };
+      
+      console.log('Creating sender with data:', { ...senderData, smtpPass: '***' });
+      
+      await api.createSender(senderData);
 
       // Success
       setSuccessMessage('✓ Sender account added successfully!');
@@ -68,9 +72,21 @@ export function AddSenderModal({ isOpen, onClose, onSuccess }: AddSenderModalPro
         resetForm();
         onSuccess();
       }, 1500);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create sender:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create sender account');
+      
+      // Better error messages
+      let errorMessage = 'Failed to create sender account';
+      
+      if (err?.data?.error) {
+        errorMessage = err.data.error;
+      } else if (err?.data?.detail) {
+        errorMessage = err.data.detail;
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
