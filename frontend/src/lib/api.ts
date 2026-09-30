@@ -100,6 +100,18 @@ export const api = {
       }>;
       count: number;
     }>('/senders'),
+  
+  createSender: (data: {
+    email: string;
+    smtpHost: string;
+    smtpPort: number;
+    smtpUser: string;
+    smtpPass: string;
+  }) =>
+    fetchApi('/senders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   // Search
   searchEmails: (query: string) =>
