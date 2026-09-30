@@ -62,19 +62,32 @@ logger.info('Workers started successfully');
 // });
 
 // Graceful shutdown
-async function shutdown(): Promise<void> {
-  logger.info('Shutting down workers gracefully');
+async function shutdown(signal: string): Promise<void> {
+  logger.info(`${signal} received, shutting down workers gracefully`);
   
-  await emailWorker.close();
-  await indexWorker.close();
-  await notifyWorker.close();
-  
-  await closeRedis();
-  await disconnectPrisma();
-  
-  logger.info('Workers shut down successfully');
-  process.exit(0);
+  try {
+    // Close workers (wait for active jobs to complete, reject new jobs)
+    logger.info('Closing workers...');
+    await Promise.all([
+      emailWorker.close(),
+      indexWorker.close(),
+      notifyWorker.close(),
+    ]);
+    logger.info('All workers closed');
+
+    // Close database connection
+    await disconnectPrisma();
+
+    // Close Redis connection
+    await closeRedis();
+
+    logger.info('Worker shutdown completed successfully');
+    process.exit(0);
+  } catch (error) {
+    logger.error({ error }, 'Error during worker shutdown');
+    process.exit(1);
+  }
 }
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
