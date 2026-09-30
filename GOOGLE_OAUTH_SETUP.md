@@ -74,7 +74,7 @@ http://localhost:4000/auth/google/callback
 
 ### 5. Update Environment Variables
 
-Open your `.env` file and update:
+Open your `.env` file **at the project root** and update:
 
 ```bash
 # Replace with your actual credentials
@@ -83,7 +83,8 @@ GOOGLE_CLIENT_SECRET=your-client-secret-here
 GOOGLE_REDIRECT_URI=http://localhost:4000/auth/google/callback
 ```
 
-Also update `backend/.env` with the same values.
+**Note:** The project uses a single unified `.env` file at the root level.
+Both backend and frontend load environment variables from this file.
 
 ### 6. Restart the Backend
 
@@ -179,12 +180,11 @@ For production deployment:
 
 **Solution**:
 ```bash
-# Make sure .env exists in backend/
-cd backend
+# Make sure .env exists at the project root
 cat .env
 
 # Restart the server
-npm run dev
+cd backend && npm run dev
 ```
 
 ### Users see "This app isn't verified"

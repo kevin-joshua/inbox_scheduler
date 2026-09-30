@@ -1,7 +1,9 @@
 import nodemailer from 'nodemailer';
 import { logger } from './logger';
+import { Sender } from '../modules/senders/senders.repo';
 
-let transporter: nodemailer.Transporter | null = null;
+// Cache of transporters by sender ID
+const transporterCache = new Map<string, nodemailer.Transporter>();
 
 export interface EmailPayload {
   from: string;
@@ -11,36 +13,133 @@ export interface EmailPayload {
   html?: string;
 }
 
-/**
- * Get or create nodemailer transporter
- * TODO(lld): This will use Ethereal SMTP for testing. In production, configure with
- * real SMTP credentials from Sender records stored in the database.
- */
-export function getMailer(): nodemailer.Transporter {
-  if (!transporter) {
-    // TODO(lld): Create Ethereal test account dynamically or use sender-specific SMTP config
-    // For now, create a basic transporter that will fail until configured
-    transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: 'example@ethereal.email',
-        pass: 'password',
-      },
-    });
+export interface EmailResult {
+  messageId: string;
+  accepted: string[];
+  rejected: string[];
+  response: string;
+}
 
-    logger.warn('Mailer initialized with placeholder config. Configure real SMTP credentials.');
+/**
+ * Create a nodemailer transporter for a specific sender
+ * Uses sender-specific SMTP credentials from the database
+ */
+export function createTransportForSender(sender: Sender): nodemailer.Transporter {
+  // Check cache first
+  if (transporterCache.has(sender.id)) {
+    return transporterCache.get(sender.id)!;
   }
+
+  const transporter = nodemailer.createTransport({
+    host: sender.smtpHost,
+    port: sender.smtpPort,
+    secure: sender.smtpPort === 465, // true for 465, false for other ports (like 587)
+    auth: {
+      user: sender.smtpUser,
+      pass: sender.smtpPass, // Already decrypted by repo
+    },
+    // Connection pool settings
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100,
+    // Timeout settings
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000,
+    socketTimeout: 30000, // 30 seconds
+  });
+
+  // Cache the transporter
+  transporterCache.set(sender.id, transporter);
+
+  logger.info(
+    { senderId: sender.id, smtpHost: sender.smtpHost, smtpPort: sender.smtpPort },
+    'Transporter created for sender'
+  );
 
   return transporter;
 }
 
 /**
- * Send an email using the configured transporter
- * TODO(lld): Implement actual email sending logic with proper error handling,
- * retry logic, and sender-specific SMTP configuration.
+ * Send an email using sender-specific SMTP credentials
  */
-export async function sendEmail(payload: EmailPayload): Promise<void> {
-  throw new Error('Not implemented: sendEmail - TODO(lld): Implement SMTP sending with sender-specific credentials');
+export async function sendEmail(
+  sender: Sender,
+  payload: EmailPayload
+): Promise<EmailResult> {
+  try {
+    const transporter = createTransportForSender(sender);
+
+    const info = await transporter.sendMail({
+      from: payload.from,
+      to: payload.to,
+      subject: payload.subject,
+      text: payload.text,
+      html: payload.html,
+    });
+
+    logger.info(
+      {
+        senderId: sender.id,
+        messageId: info.messageId,
+        recipient: payload.to,
+        accepted: info.accepted,
+        rejected: info.rejected,
+      },
+      'Email sent successfully'
+    );
+
+    return {
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected,
+      response: info.response,
+    };
+  } catch (error) {
+    logger.error(
+      {
+        error,
+        senderId: sender.id,
+        recipient: payload.to,
+        subject: payload.subject,
+      },
+      'Failed to send email'
+    );
+    throw error;
+  }
+}
+
+/**
+ * Close a specific sender's transporter
+ * Useful when updating sender credentials
+ */
+export function closeTransporter(senderId: string): void {
+  const transporter = transporterCache.get(senderId);
+  if (transporter) {
+    transporter.close();
+    transporterCache.delete(senderId);
+    logger.info({ senderId }, 'Transporter closed');
+  }
+}
+
+/**
+ * Close all transporters
+ * Called during graceful shutdown
+ */
+export function closeAllTransporters(): void {
+  for (const [senderId, transporter] of transporterCache.entries()) {
+    transporter.close();
+    logger.debug({ senderId }, 'Transporter closed');
+  }
+  transporterCache.clear();
+  logger.info('All transporters closed');
+}
+
+/**
+ * Get Ethereal preview URL for test emails
+ * Only works with Ethereal SMTP (smtp.ethereal.email)
+ */
+export function getEtherealPreviewUrl(messageId: string): string | null {
+  if (!messageId) return null;
+  // Ethereal message IDs can be used to construct preview URLs
+  return `https://ethereal.email/message/${messageId}`;
 }

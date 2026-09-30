@@ -10,6 +10,7 @@ import { checkDatabaseHealth } from './db/client';
 import { getRedisClient } from './infra/redis';
 import { authRouter } from './modules/auth/auth.routes';
 import { emailsRouter } from './modules/emails/emails.routes';
+import { sendersRouter } from './modules/senders/senders.routes';
 import { slackRouter } from './modules/slack/slack.routes';
 import { searchRouter } from './modules/search/search.routes';
 import { bullBoardRouter, bullBoardAuth } from './queue/board';
@@ -63,6 +64,7 @@ app.get('/health', async (req, res) => {
 // API routes
 app.use('/auth', authRouter);
 app.use('/emails', emailsRouter);
+app.use('/senders', sendersRouter);
 app.use('/slack', slackRouter);
 app.use('/search', searchRouter);
 

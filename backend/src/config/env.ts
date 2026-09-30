@@ -1,5 +1,9 @@
+import { config } from 'dotenv';
+import { resolve } from 'path';
 import { z } from 'zod';
 import { logger } from '../infra/logger';
+
+config({ path: resolve(__dirname, '../../../.env') });
 
 const envSchema = z.object({
   // Application
@@ -8,6 +12,7 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
   COOKIE_NAME: z.string().default('reachinbox_session'),
+  ENCRYPTION_KEY: z.string().length(64, 'Encryption key must be 64 hex characters (32 bytes)'),
 
   // Database
   DATABASE_URL: z.string().url(),

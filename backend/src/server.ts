@@ -1,10 +1,17 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { resolve, join } from 'path';
+
+// Load .env from project root
+// When running with tsx: __dirname is backend/src, so go up 2 levels
+// When running compiled: __dirname is backend/dist, so go up 2 levels
+config({ path: resolve(__dirname, '../../.env') });
 import { app } from './app';
 import { env } from './config/env';
 import { logger } from './infra/logger';
 import { disconnectPrisma } from './db/client';
 import { closeRedis } from './infra/redis';
 import { closeElastic } from './infra/elastic';
+import { closeAllTransporters } from './infra/mailer';
 import { emailQueue, indexQueue, notifyQueue } from './queue/queues';
 
 const PORT = env.PORT;
@@ -41,6 +48,9 @@ async function shutdown(signal: string): Promise<void> {
       notifyQueue.close(),
     ]);
     logger.info('BullMQ queues closed');
+
+    // Close all SMTP transporters
+    closeAllTransporters();
 
     // Close database connection
     await disconnectPrisma();

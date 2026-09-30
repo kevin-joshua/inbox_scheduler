@@ -1,4 +1,8 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Load .env from project root (two levels up from backend/prisma/)
+config({ path: resolve(__dirname, '../../../.env') });
 import { PrismaClient } from '@prisma/client';
 import nodemailer from 'nodemailer';
 

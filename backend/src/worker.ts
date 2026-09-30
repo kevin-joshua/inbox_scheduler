@@ -1,4 +1,8 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Load .env from project root (one level up from backend/)
+config({ path: resolve(__dirname, '../../.env') });
 import { Worker } from 'bullmq';
 import { env } from './config/env';
 import { logger } from './infra/logger';
