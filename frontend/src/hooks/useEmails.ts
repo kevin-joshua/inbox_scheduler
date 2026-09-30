@@ -62,6 +62,7 @@ export function useEmails(filters?: {
 
   useEffect(() => {
     fetchEmails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters?.status, filters?.batchId, filters?.page, filters?.limit]);
 
   return {

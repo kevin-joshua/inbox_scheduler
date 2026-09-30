@@ -33,7 +33,7 @@ export function SentEmailsTable() {
     );
   }
 
-  if (emails.length === 0) {
+  if (!emails || emails.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow">
         <div className="p-12 text-center">
