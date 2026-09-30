@@ -28,18 +28,35 @@ export function formatDate(dateString: string): string {
   });
 }
 
-export function parseCSVEmails(csvContent: string): string[] {
-  const emails: string[] = [];
+export function parseCSVEmails(csvContent: string): { 
+  valid: string[]; 
+  invalid: string[];
+} {
   const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  const validEmails = new Set<string>();
+  const invalidEntries = new Set<string>();
 
-  // Extract all emails from the CSV content
-  const matches = csvContent.match(emailRegex);
-  if (matches) {
-    // Deduplicate
-    return [...new Set(matches)];
+  // Split by common delimiters
+  const lines = csvContent.split(/[\n,;]/);
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Check if it matches email pattern
+    const match = trimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    if (match) {
+      validEmails.add(match[0]);
+    } else if (trimmed.length > 0) {
+      // Non-empty but not a valid email
+      invalidEntries.add(trimmed);
+    }
   }
 
-  return emails;
+  return {
+    valid: Array.from(validEmails),
+    invalid: Array.from(invalidEntries).slice(0, 10), // Limit to first 10 invalid
+  };
 }
 
 export function cn(...classes: (string | boolean | undefined)[]):string {

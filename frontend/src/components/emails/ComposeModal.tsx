@@ -22,6 +22,7 @@ export function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [recipients, setRecipients] = useState<string[]>([]);
+  const [invalidEmails, setInvalidEmails] = useState<string[]>([]);
   const [startAt, setStartAt] = useState('');
   const [delayMs, setDelayMs] = useState('1000');
   const [hourlyLimit, setHourlyLimit] = useState('100');
@@ -29,6 +30,7 @@ export function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,8 +40,14 @@ export function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target?.result as string;
-      const emails = parseCSVEmails(content);
-      setRecipients(emails);
+      const result = parseCSVEmails(content);
+      setRecipients(result.valid);
+      setInvalidEmails(result.invalid);
+      
+      // Clear any previous errors
+      if (result.valid.length > 0) {
+        setError(null);
+      }
     };
     reader.readAsText(file);
   };
@@ -82,12 +90,15 @@ export function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
         hourlyLimit: parseInt(hourlyLimit),
       });
 
-      // Success - close modal and reset
-      onClose();
-      resetForm();
+      // Success - show message briefly then close
+      setSuccessMessage(`✓ Successfully scheduled ${recipients.length} emails!`);
       
-      // Reload page to show new emails
-      window.location.reload();
+      setTimeout(() => {
+        onClose();
+        resetForm();
+        // Reload page to show new emails
+        window.location.reload();
+      }, 2000);
     } catch (err) {
       console.error('Failed to schedule batch:', err);
       setError(err instanceof Error ? err.message : 'Failed to schedule emails');
@@ -102,10 +113,12 @@ export function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
     setSubject('');
     setBody('');
     setRecipients([]);
+    setInvalidEmails([]);
     setStartAt('');
     setDelayMs('1000');
     setHourlyLimit('100');
     setError(null);
+    setSuccessMessage(null);
   };
 
   const handleClose = () => {
@@ -159,6 +172,13 @@ export function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
             3. Schedule
           </div>
         </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-sm text-green-600 font-medium">{successMessage}</p>
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (
@@ -255,7 +275,7 @@ export function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
             {recipients.length > 0 && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-md">
                 <p className="text-sm font-medium text-green-800">
-                  ✓ {recipients.length} email address{recipients.length !== 1 ? 'es' : ''} detected
+                  ✓ {recipients.length} valid email address{recipients.length !== 1 ? 'es' : ''} detected
                 </p>
                 <div className="mt-2 max-h-32 overflow-y-auto">
                   <div className="text-xs text-green-700 space-y-1">
@@ -269,6 +289,24 @@ export function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
                     )}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {invalidEmails.length > 0 && (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                <p className="text-sm font-medium text-yellow-800">
+                  ⚠ {invalidEmails.length} invalid {invalidEmails.length !== 1 ? 'entries' : 'entry'} skipped
+                </p>
+                <div className="mt-2 max-h-32 overflow-y-auto">
+                  <div className="text-xs text-yellow-700 space-y-1">
+                    {invalidEmails.map((entry, idx) => (
+                      <div key={idx} className="font-mono">{entry}</div>
+                    ))}
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-yellow-600">
+                  These entries were not recognized as valid email addresses and will be ignored.
+                </p>
               </div>
             )}
 
