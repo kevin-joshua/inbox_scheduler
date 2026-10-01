@@ -100,7 +100,7 @@ export class RateLimitGate {
    * @param senderId  The sender's database ID (used to build Redis keys)
    * @returns GateResult – { allowed: true } or { allowed: false, retryAt }
    */
-  async checkSender(senderId: string): Promise<GateResult> {
+  async checkSender(senderId: string, hourlyLimit = env.MAX_EMAILS_PER_HOUR_PER_SENDER): Promise<GateResult> {
     const redis = getRedisClient();
 
     const now = Date.now();
@@ -124,7 +124,7 @@ export class RateLimitGate {
         2,
         hourlyKey,
         lastKey,
-        String(env.MAX_EMAILS_PER_HOUR_PER_SENDER),
+        String(hourlyLimit),
         String(env.MIN_DELAY_BETWEEN_EMAILS_MS),
         String(now),
         String(7200) // 2-hour TTL; keeps key alive across the hour boundary
@@ -144,7 +144,7 @@ export class RateLimitGate {
       if (err?.message?.includes('NOSCRIPT')) {
         this.scriptSha = null;
         logger.warn({ senderId }, 'Rate-limit script not found in Redis, reloading…');
-        return this.checkSender(senderId);
+        return this.checkSender(senderId, hourlyLimit);
       }
       throw err;
     }

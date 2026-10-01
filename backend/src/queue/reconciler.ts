@@ -64,7 +64,7 @@ export class Reconciler {
     for (const email of stuck) {
       try {
         // 2. Check if a BullMQ job already exists for this email
-        const jobId = `email:${email.id}`;
+        const jobId = email.id;
         const existingJob = await emailQueue.getJob(jobId);
 
         if (existingJob) {

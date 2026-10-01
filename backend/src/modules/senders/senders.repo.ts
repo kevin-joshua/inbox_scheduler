@@ -87,6 +87,13 @@ export class SendersRepo {
     }
   }
 
+  async getSenderByEmailForUser(email: string, userId: string): Promise<SenderSummary | null> {
+    return prisma.sender.findFirst({
+      where: { email: email.trim().toLowerCase(), userId },
+      select: { id: true, email: true, smtpHost: true, smtpPort: true, createdAt: true },
+    });
+  }
+
   /**
    * Get sender by ID with decrypted SMTP credentials
    */

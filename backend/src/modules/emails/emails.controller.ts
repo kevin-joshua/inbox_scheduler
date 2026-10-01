@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../auth/auth.middleware';
-import { emailsService, NotFoundError, ForbiddenError, ConflictError } from './emails.service';
+import { emailsService, NotFoundError, ForbiddenError, ConflictError, QueueUnavailableError } from './emails.service';
 import { GetEmailsQuery } from './emails.schema';
 import { logger } from '../../infra/logger';
 
@@ -150,6 +150,10 @@ export class EmailsController {
   // ── Error handler ─────────────────────────────────────────────────────────
 
   private handleError(error: unknown, res: Response): void {
+    if (error instanceof QueueUnavailableError) {
+      res.status(503).json({ error: error.message });
+      return;
+    }
     if (error instanceof NotFoundError) {
       res.status(404).json({ error: error.message });
       return;
@@ -166,7 +170,7 @@ export class EmailsController {
       return;
     }
 
-    logger.error({ error }, 'Unhandled error in emails controller');
+    logger.error({ error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error }, 'Unhandled error in emails controller');
     res.status(500).json({ error: 'Internal server error' });
   }
 }

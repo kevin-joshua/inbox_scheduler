@@ -1,6 +1,8 @@
 import { EmailStatus } from '@prisma/client';
 import { emailsRepo } from './emails.repo';
 import { emailProducer } from '../../queue/producers/email.producer';
+import { indexQueue } from '../../queue/queues';
+import { IndexJobData } from '../../queue/workers/index.worker';
 import { sendersRepo } from '../senders/senders.repo';
 import { parseEmailCsv, deduplicateEmails } from '../../utils/csv';
 import { addMilliseconds } from '../../utils/time';
@@ -32,6 +34,13 @@ export class ConflictError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ConflictError';
+  }
+}
+
+export class QueueUnavailableError extends Error {
+  constructor(message = 'Email queue is unavailable. Please make sure Redis is running.') {
+    super(message);
+    this.name = 'QueueUnavailableError';
   }
 }
 
@@ -85,9 +94,19 @@ export class EmailsService {
         recipient: input.recipient,
         subject: input.subject,
         body: input.body,
+        hourlyLimit: 1,
       },
       scheduledAt
     );
+
+    await indexQueue.add(`scheduled:${emailId}`, {
+      emailId,
+      subject: input.subject,
+      body: input.body,
+      recipient: input.recipient,
+    } satisfies IndexJobData).catch((error) => {
+      logger.warn({ error, emailId }, 'Failed to enqueue scheduled email index job');
+    });
 
     logger.info({ emailId, batchId, userId }, 'Single email scheduled');
 
@@ -109,7 +128,17 @@ export class EmailsService {
     input: ScheduleBatchInput,
     userId: string
   ): Promise<{ batchId: string; emailCount: number; skippedDuplicates: number }> {
-    await this.assertSenderOwnership(input.senderId, userId);
+    let senderId = input.senderId;
+    if (!senderId && input.fromEmail) {
+      const sender = await sendersRepo.getSenderByEmailForUser(input.fromEmail, userId);
+      if (!sender) {
+        throw new NotFoundError(`Sender account ${input.fromEmail} was not found`);
+      }
+      senderId = sender.id;
+    }
+    if (!senderId) {
+      throw new NotFoundError('A sender account is required');
+    }
 
     // Deduplicate
     const { unique: recipients, duplicates: skippedDuplicates } =
@@ -138,24 +167,44 @@ export class EmailsService {
         hourlyLimit: input.hourlyLimit,
       },
       recipients.map((recipient, i) => ({
-        senderId: input.senderId,
+        senderId,
         recipient,
         scheduledAt: scheduledTimes[i],
       }))
     );
 
     // Bulk-enqueue BullMQ jobs
-    await emailProducer.addBulkEmailJobs(
-      emailIds.map((e) => ({
-        data: {
-          emailId: e.id,
-          senderId: input.senderId,
+    try {
+      await emailProducer.addBulkEmailJobs(
+        emailIds.map((e) => ({
+          data: {
+            emailId: e.id,
+            senderId,
           recipient: e.recipient,
           subject: input.subject,
           body: input.body,
-        },
-        scheduledAt: e.scheduledAt,
-      }))
+          hourlyLimit: input.hourlyLimit,
+          },
+          scheduledAt: e.scheduledAt,
+        }))
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: { message, stack: error instanceof Error ? error.stack : undefined }, batchId }, 'Failed to enqueue scheduled email jobs');
+      throw new QueueUnavailableError(`Email queue unavailable: ${message}`);
+    }
+
+    // Index scheduled records immediately so they are searchable before delivery.
+    // Search indexing is best-effort and must not block scheduling.
+    await Promise.allSettled(
+      emailIds.map((email) =>
+        indexQueue.add(`scheduled:${email.id}`, {
+          emailId: email.id,
+          subject: input.subject,
+          body: input.body,
+          recipient: email.recipient,
+        } satisfies IndexJobData)
+      )
     );
 
     logger.info(
@@ -258,7 +307,7 @@ export class EmailsService {
     }
 
     // Remove from queue (throws if currently active)
-    await emailProducer.cancelEmailJob(`email:${emailId}`);
+    await emailProducer.cancelEmailJob(emailId);
 
     // Update status to reflect cancellation (soft-delete approach)
     await emailsRepo.updateEmailStatus(emailId, 'FAILED' as EmailStatus);

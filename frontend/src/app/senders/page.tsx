@@ -14,15 +14,15 @@ export default function SendersPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#f8faf9] flex">
         <Header />
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="flex-1 min-w-0 px-8 py-8">
           {/* Page Header */}
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Sender Accounts</h2>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="text-xs text-[#8a948e] mb-1">Workspace / Settings</p><h2 className="text-2xl font-bold tracking-tight text-[#202522]">Sender Accounts</h2>
+              <p className="mt-1 text-sm text-[#7a8580]">
                 Manage your SMTP sender accounts for email campaigns
               </p>
             </div>
@@ -88,7 +88,7 @@ export default function SendersPage() {
 
           {/* Senders Table */}
           {!isLoading && !error && senders.length > 0 && (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-white rounded-xl border border-[#e6ece8] overflow-hidden shadow-[0_4px_20px_rgba(32,37,34,0.03)]">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>

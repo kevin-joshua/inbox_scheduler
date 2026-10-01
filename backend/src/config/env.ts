@@ -41,8 +41,14 @@ const envSchema = z.object({
   SMTP_RETRY_BACKOFF_MS: z.string().default('5000').transform(Number),
 
   // Bull Board
-  BULL_BOARD_USER: z.string(),
-  BULL_BOARD_PASSWORD: z.string(),
+  BULL_BOARD_USER: z.string().default('admin'),
+  BULL_BOARD_PASSWORD: z.string().min(8),
+
+  // Default SMTP
+  DEFAULT_SMTP_HOST: z.string().min(1),
+  DEFAULT_SMTP_PORT: z.string().transform(Number),
+  DEFAULT_SMTP_USER: z.string().min(1),
+  DEFAULT_SMTP_PASS: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;

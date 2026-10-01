@@ -9,9 +9,10 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  showHeader?: boolean;
 }
 
-export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, size = 'md', showHeader = true }: ModalProps) {
   const sizeClasses = {
     sm: 'max-w-md',
     md: 'max-w-2xl',
@@ -34,20 +35,15 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
-        className="absolute inset-0 bg-black bg-opacity-50"
+        className="absolute inset-0 bg-[#202522]/10 backdrop-blur-[1px]"
         onClick={onClose}
       />
       <div className={`relative bg-white rounded-lg shadow-xl ${sizeClasses[size]} w-full mx-4 max-h-[90vh] overflow-y-auto`}>
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-semibold">{title}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="p-4">{children}</div>
+        {showHeader && <div className="flex items-center justify-between p-4 border-b border-[#e6ece8]">
+          <h2 className="text-xl font-semibold text-[#202522]">{title}</h2>
+          <button onClick={onClose} className="text-[#9aa49f] hover:text-[#202522]">✕</button>
+        </div>}
+        {children}
       </div>
     </div>,
     document.body

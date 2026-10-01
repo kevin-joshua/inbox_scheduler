@@ -48,7 +48,7 @@ export function useEmails(filters?: {
       setIsLoading(true);
       setError(null);
       const data = await api.getEmails(filters);
-      setEmails(data.emails);
+      setEmails(data.data);
       setPagination(data.pagination);
     } catch (err) {
       console.error('Failed to fetch emails:', err);

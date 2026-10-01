@@ -86,7 +86,7 @@ async function enqueueNotification(
 // ─── Main processor ───────────────────────────────────────────────────────────
 
 export async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
-  const { emailId, senderId, recipient, subject, body } = job.data;
+  const { emailId, senderId, recipient, subject, body, hourlyLimit } = job.data;
   const attempt = job.attemptsMade + 1; // human-readable (1-indexed)
 
   logger.info({ jobId: job.id, emailId, attempt }, 'Processing email job');
@@ -119,7 +119,7 @@ export async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
 
   let gate;
   try {
-    gate = await rateLimitGate.checkSender(senderId);
+    gate = await rateLimitGate.checkSender(senderId, hourlyLimit);
   } catch (gateErr) {
     // Gate itself errored (Redis down, etc.) – treat as transient, revert and retry.
     await emailsRepo.updateEmailStatus(emailId, 'SCHEDULED').catch(() => {});
@@ -132,7 +132,7 @@ export async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
 
     const retryDate = new Date(gate.retryAt!);
     await emailProducer.addEmailJob(
-      { emailId, senderId, recipient, subject, body },
+      { emailId, senderId, recipient, subject, body, hourlyLimit },
       retryDate
     );
 
@@ -158,7 +158,7 @@ export async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
           
           await enqueueNotification('sender_limit_reached', {
             userId: sender.userId,
-            message: `⚠️ Sender limit reached: ${sender.email} has hit the hourly limit of ${env.MAX_EMAILS_PER_HOUR_PER_SENDER} emails. Emails will resume automatically at the top of the next hour.`,
+            message: `⚠️ Sender limit reached: ${sender.email} has hit the hourly limit of ${hourlyLimit ?? env.MAX_EMAILS_PER_HOUR_PER_SENDER} emails. Emails will resume automatically at the top of the next hour.`,
             eventType: 'sender_limit_reached',
             senderId: sender.id,
             senderEmail: sender.email,
@@ -237,7 +237,7 @@ export async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
     await Promise.allSettled([
       // Elasticsearch – index the email for full-text search.
       indexQueue
-        .add(`index:${emailId}`, {
+        .add(`sent:${emailId}`, {
           emailId,
           subject,
           body,
@@ -247,22 +247,6 @@ export async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
           logger.warn({ err, emailId }, 'Failed to enqueue index job – ignoring');
         }),
 
-      // Slack – notify the owner that the email was sent.
-      // We need the userId, which is not in the job payload to keep it lean;
-      // fetch it with a lightweight select.
-      (async () => {
-        const row = await prisma.email.findUnique({
-          where:  { id: emailId },
-          select: { userId: true },
-        });
-        if (!row) return;
-
-        await enqueueNotification(`notify-sent:${emailId}`, {
-          userId:    row.userId,
-          message:   `✅ Email to *${recipient}* was sent successfully (message ID: ${result.messageId})`,
-          eventType: 'sent',
-        });
-      })(),
     ]);
 
   } catch (err) {

@@ -12,19 +12,19 @@ export function Button({
   children,
   ...props
 }: ButtonProps) {
-  const baseStyles = 'rounded font-medium transition-colors focus:outline-none focus:ring-2';
+  const baseStyles = 'rounded-lg font-medium transition-colors focus:outline-none focus:ring-2';
   
   const variantStyles = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-    secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
-    outline: 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-blue-500',
+    primary: 'bg-[#5cc79b] text-white hover:bg-[#48b687] focus:ring-[#5cc79b]',
+    secondary: 'bg-[#edf3f0] text-[#53605a] hover:bg-[#e3ebe7] focus:ring-[#a9cdbd]',
+    danger: 'bg-[#fff2f1] text-[#da6b64] border border-[#f5cfcc] hover:bg-[#ffe8e5] focus:ring-[#efb2ae]',
+    outline: 'bg-white border border-[#b6e3d0] text-[#31936a] hover:bg-[#f0fbf6] focus:ring-[#93d7bb]',
   };
   
   const sizeStyles = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg',
+    sm: 'px-3 py-1.5 text-xs',
+    md: 'px-4 py-2 text-sm',
+    lg: 'px-5 py-2.5 text-sm',
   };
 
   return (

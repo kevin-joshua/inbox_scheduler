@@ -30,7 +30,8 @@ export const scheduleEmailSchema = z.object({
 
 export const scheduleBatchSchema = z.object({
   body: z.object({
-    senderId: z.string().cuid('senderId must be a valid CUID'),
+    fromEmail: z.string().email('fromEmail must be a valid email address').optional(),
+    senderId: z.string().cuid('senderId must be a valid CUID').optional(),
     recipients: z
       .array(z.string().email())
       .min(1, 'At least one recipient is required')
@@ -47,6 +48,9 @@ export const scheduleBatchSchema = z.object({
       .int('hourlyLimit must be an integer')
       .min(1, 'hourlyLimit must be at least 1')
       .max(10_000, 'hourlyLimit too high'),
+  }).refine((value) => Boolean(value.fromEmail || value.senderId), {
+    message: 'Either fromEmail or senderId is required',
+    path: ['fromEmail'],
   }),
 });
 

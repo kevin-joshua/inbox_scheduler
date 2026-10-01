@@ -107,8 +107,10 @@ export class SendersController {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create sender';
 
-      if (errorMessage.includes('Invalid SMTP')) {
-        res.status(400).json({ error: errorMessage });
+      if (/invalid smtp|smtp credential|authentication|EAUTH/i.test(errorMessage)) {
+        res.status(400).json({
+          error: 'Invalid SMTP credentials. Gmail requires an App Password when 2-Step Verification is enabled.',
+        });
       } else {
         logger.error({ error, userId: req.userId }, 'Failed to create sender');
         res.status(500).json({ error: 'Failed to create sender' });

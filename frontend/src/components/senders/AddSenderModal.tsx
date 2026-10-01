@@ -98,8 +98,9 @@ export function AddSenderModal({ isOpen, onClose, onSuccess }: AddSenderModalPro
         errorMessage = err.message;
       }
       
-      // Add debug info
-      errorMessage += ` [Status: ${err?.status || 'unknown'}]`;
+      if (err?.status && !err?.data?.error && !err?.data?.detail) {
+        errorMessage += ` [Status: ${err.status}]`;
+      }
       
       setError(errorMessage);
     } finally {

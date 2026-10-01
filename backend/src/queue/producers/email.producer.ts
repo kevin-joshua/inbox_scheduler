@@ -8,6 +8,7 @@ export interface EmailJobData {
   recipient: string;
   subject: string;
   body: string;
+  hourlyLimit?: number;
 }
 
 export class EmailProducer {
@@ -20,7 +21,7 @@ export class EmailProducer {
 
     const job = await emailQueue.add(`email:${data.emailId}`, data, {
       delay,
-      jobId: `email:${data.emailId}`, // Idempotency – one job per email record
+      jobId: data.emailId, // BullMQ custom IDs cannot contain ':'
     });
 
     logger.debug(
@@ -45,7 +46,7 @@ export class EmailProducer {
       data,
       opts: {
         delay: calculateDelay(scheduledAt),
-        jobId: `email:${data.emailId}`,
+      jobId: data.emailId,
       },
     }));
 

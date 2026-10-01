@@ -27,7 +27,13 @@ async function fetchApi<T>(
   });
 
   if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
+    const raw = await response.text();
+    let data: unknown = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      data = raw ? { error: raw } : {};
+    }
     throw new ApiError(response.status, response.statusText, data);
   }
 
@@ -47,7 +53,7 @@ export const api = {
     if (filters?.page) params.append('page', String(filters.page));
     if (filters?.limit) params.append('limit', String(filters.limit));
     return fetchApi<{
-      emails: Array<{
+      data: Array<{
         id: string;
         recipient: string;
         subject: string;
@@ -76,7 +82,7 @@ export const api = {
     scheduledAt: string;
   }) => fetchApi('/emails', { method: 'POST', body: JSON.stringify(data) }),
   scheduleBatch: (data: {
-    senderId: string;
+    fromEmail: string;
     recipients: string[];
     subject: string;
     body: string;
@@ -115,5 +121,17 @@ export const api = {
 
   // Search
   searchEmails: (query: string) =>
-    fetchApi(`/search/emails?q=${encodeURIComponent(query)}`),
+    fetchApi<{
+      data: Array<{
+        id: string;
+        recipient: string;
+        subject: string;
+        body: string;
+        status: string;
+        scheduledAt: string;
+        sentAt: string | null;
+        batchId: string;
+      }>;
+      pagination: { total: number; page: number; limit: number; totalPages: number };
+    }>(`/search/emails?q=${encodeURIComponent(query)}&limit=100`),
 };
